@@ -29,9 +29,14 @@ def login():
     if request.method == "GET":
         return render_template("index.html")
     else:
-        Username = request.form["Username"]
-        Password = request.form["Password"]
-        if Password == "123" and Username == "bob":
-            return 'Hello ' + Username
+        con = sqlite3.connect('Database.db')
+        cur = con.cursor()
+        cur.execute("SELECT * FROM User WHERE Username=? AND Password=?",
+                        (request.form['Username'],request.form['Password']))
+        if len(cur.fetchall()) == 0:
+            return "Wrong username and password"
         else:
-            return 'Login Failed'
+            return "Welcome " + request.form['Username']
+
+if __name__ == "__main__":
+    app.run(debug=True)
