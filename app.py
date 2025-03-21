@@ -1,8 +1,9 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, session
 import sqlite3
 import hashlib
 
 app = Flask(__name__)
+app.secret_key = "random"
 con = sqlite3.connect("Database.db")
 cur = con.cursor()
 cur.execute(""" CREATE TABLE IF NOT EXISTS User(
@@ -19,8 +20,7 @@ def signup():
     else:
         con = sqlite3.connect("Database.db")
         cur = con.cursor()
-        encoded = request.form['Password'].encode()
-        hash = hashlib.sha256(encoded).hexdigest()
+        hash = hashlib.sha256(request.form['Password'].encode()).hexdigest()
         cur.execute("INSERT INTO User (Username, Password) VALUES (?,?)",
                         (request.form['Username'], hash))
         con.commit()
@@ -34,14 +34,39 @@ def login():
     else:
         con = sqlite3.connect('Database.db')
         cur = con.cursor()
-        encoded = request.form['Password'].encode()
-        hash = hashlib.sha256(encoded).hexdigest()
+        hash = hashlib.sha256(request.form['Password'].encode()).hexdigest()
         cur.execute("SELECT * FROM User WHERE Username=? AND Password=?",
                         (request.form['Username'], hash))
         if len(cur.fetchall()) == 0:
             return "Wrong username and password"
         else:
-            return "Welcome " + request.form['Username']
+            session['Username'] = request.form['Username']
+            return render_template("welcome.html")
+
+@app.route("/password", methods=["GET", "POST"])
+def password():
+    if request.method == "GET":
+        if 'Username' in session:
+            return render_template("password.html")
+        else:
+            return render_template("index.html")
+    else:
+        if 'Username' in session:
+            con = sqlite3.connect("Database.db")
+            cur = con.cursor()
+            hash = hashlib.sha256(request.form['NewPassword'].encode()).hexdigest()
+            cur.execute("UPDATE User SET Password=? WHERE Username=?",
+                            (hash, session['Username']))
+            con.commit()
+            con.close()
+            return "Password changed successfully"
+        else:
+            return render_template("index.html")
+
+@app.route("/logout")
+def logout():
+    session.pop('Username', None)
+    return render_template("index.html")
 
 if __name__ == "__main__":
     app.run(debug=True)
